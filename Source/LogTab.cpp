@@ -42,12 +42,7 @@ void LogTab::NewFrame()
         ImVec2 scrolling_child_size = ImVec2(0, ImGui::GetWindowHeight() - 100);
         ImGui::BeginChild("scrolling", scrolling_child_size, true, ImGuiWindowFlags_HorizontalScrollbar);
 
-        char LogLine[2048];
-        mParent->mLogBuffer.clear();
-        mParent->mLogBuffer.seekg(0);
-        mParent->mLogBuffer.seekp(0);
-
-        while (mParent->mLogBuffer.getline(LogLine, 2048, '\n'))
+        for (const LogLine& LogLine : mParent->mLogLines)
         {
             //ImGui::TextColored(ImVec4(1, 1, 0, 1), LogLine);
             ProcessLine(LogLine);
@@ -63,88 +58,35 @@ void LogTab::NewFrame()
 
 }
 
-std::string FindCategory(const char* LogLine)
-{
-    static std::string ProcessingLine;
-    ProcessingLine = LogLine;
-    std::string Category;
-    if (LogLine[0] == '[')
-    {
-        // Full normal Log line.
-        // Ex. [2022.04.20-01.16.24:118][  0]LogConfig: Setting CVar [[r.TemporalAASamples:4]]
-        size_t EndIndex = ProcessingLine.find(":");    // This finds the 1st one in the data.
-        EndIndex = ProcessingLine.find(":", EndIndex + 1); // Ideally this find the one at the end of the category.
-        if (EndIndex != std::string::npos)
-        {
-            size_t StartIndex = ProcessingLine.rfind("]", EndIndex);
-            if (StartIndex != std::string::npos)
-            {
-                StartIndex++;
-                Category = ProcessingLine.substr(StartIndex, EndIndex - StartIndex);
-            }
-        }
-    }
-    else
-    {
-        // Early lines don't have the timestamp.
-        // Ex. LogPluginManager: Mounting plugin Bridge
-        size_t FoundIndex = ProcessingLine.find(":");
-        if (FoundIndex != std::string::npos)
-        {
-            Category = ProcessingLine.substr(0, FoundIndex);
-        }
-    }
-    return Category;
-}
-
-static inline void CreateLogLine(const ImVec4& color, const char* LogLine, const char* Category)
+void LogTab::ProcessLine(const LogLine& LogLine)
 {
     static std::string sContextLine;
-    const bool ShouldOpenConext = sContextLine.size() == 0 || sContextLine == LogLine;
 
-    ImGui::TextColored(color, LogLine);
+    if (ShouldShowCategory(LogLine.Category) == false)
+    {
+        return;
+    }
+
+    const bool ShouldOpenConext = sContextLine.size() == 0 || sContextLine == LogLine.LineText;
+    ImGui::PushStyleColor(ImGuiCol_Text, LogLine.Color);
+    ImGui::Text(LogLine.LineText.c_str());
+    ImGui::PopStyleColor();
     if (ShouldOpenConext && ImGui::BeginPopupContextItem("Line Context"))
     {
-        sContextLine = LogLine;
+        sContextLine = LogLine.LineText;
         if (ImGui::Button("Copy"))
         {
-            ImGui::SetClipboardText(LogLine);
+            ImGui::SetClipboardText(LogLine.LineText.c_str());
             sContextLine.clear();
             ImGui::CloseCurrentPopup();
         }
         else if (ImGui::Button("Copy Category"))
         {
-            if (Category == nullptr)
-            {
-                std::string Cat = FindCategory(LogLine);
-                ImGui::SetClipboardText(Cat.c_str());
-            }
-            else
-            {
-                ImGui::SetClipboardText(Category);
-            }
+            ImGui::SetClipboardText(LogLine.Category.c_str());
             sContextLine.clear();
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
-    }
-}
-
-void LogTab::ProcessLine(const char* LogLine)
-{
-    if (mInclusiveCategories.size() == 0 && mExclusiveCategories.size() == 0)
-    {
-        // Fast Path
-        CreateLogLine(ImVec4(1, 1, 1, 1), LogLine, nullptr);
-    }
-    else
-    {
-        std::string Category = FindCategory(LogLine);
-        if (ShouldShowCategory(Category))
-        {
-            CreateLogLine(ImVec4(1, 1, 1, 1), LogLine, Category.c_str());
-        }
-
     }
 }
 

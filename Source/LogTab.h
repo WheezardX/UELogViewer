@@ -3,6 +3,7 @@
 
 
 class LogViewer;
+struct LogLine;
 
 class LogTab
 {
@@ -14,7 +15,7 @@ public:
     bool mIsOpen = true;
 
 private:
-    void ProcessLine(const char* LogLine);
+    void ProcessLine(const LogLine& LogLine);
     bool ShouldShowCategory(const std::string& Category);
 
     LogViewer* mParent;

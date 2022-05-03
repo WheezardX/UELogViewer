@@ -1,7 +1,67 @@
 #include "LogViewer.h"
-#include "imgui.h"
 #include <fstream>
 #include <streambuf>
+
+
+
+static void ProcessLine(const char* ReadLine, LogLine* LogLine)
+{
+    static std::string ProcessingLine; // Reuse memory
+
+    if (LogLine == nullptr || ReadLine == nullptr)
+    {
+        return;
+    }
+
+    ProcessingLine = ReadLine;
+    std::string Category;
+    if (ReadLine[0] == '[')
+    {
+        // Full normal Log line.
+        // Ex. [2022.04.20-01.16.24:118][  0]LogConfig: Setting CVar [[r.TemporalAASamples:4]]
+        size_t EndIndex = ProcessingLine.find(":");    // This finds the 1st one in the data.
+        EndIndex = ProcessingLine.find(":", EndIndex + 1); // Ideally this find the one at the end of the category.
+        if (EndIndex != std::string::npos)
+        {
+            size_t StartIndex = ProcessingLine.rfind("]", EndIndex);
+            if (StartIndex != std::string::npos)
+            {
+                StartIndex++;
+                LogLine->Category = ProcessingLine.substr(StartIndex, EndIndex - StartIndex);
+            }
+        }
+    }
+    else
+    {
+        // Early lines don't have the timestamp.
+        // Ex. LogPluginManager: Mounting plugin Bridge
+        size_t FoundIndex = ProcessingLine.find(":");
+        if (FoundIndex != std::string::npos)
+        {
+            LogLine->Category = ProcessingLine.substr(0, FoundIndex);
+        }
+    }
+
+    size_t FoundIndex = ProcessingLine.find("Warning");
+    if (FoundIndex != std::string::npos)
+    {
+        LogLine->Severity = "Warning";
+        LogLine->Color = ImVec4(1, 1, 0, 1);
+    }
+    else if (ProcessingLine.find("Error") != std::string::npos)
+    {
+        LogLine->Severity = "Error";
+        LogLine->Color = ImVec4(1.0f, 0.1f, 0.1f, 1.0f);
+    }
+    else
+    {
+        LogLine->Severity = "Unknown";  // Note there are others but we don't really care about info vs. display, etc.
+        LogLine->Color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+}
+
+
+
 
 
 LogViewer::LogViewer()
@@ -97,5 +157,22 @@ void LogViewer::LoadLog(const std::string& Filepath)
     {
         std::ifstream fs(Filepath);
         mLogBuffer << fs.rdbuf();
+
+        char CurrLogLine[2048];
+        mLogBuffer.clear(); // Clears flags.
+        mLogBuffer.seekg(0);
+        mLogBuffer.seekp(0);
+
+        mLogLines.clear();
+        int Index = 0;
+        while (mLogBuffer.getline(CurrLogLine, 2048, '\n'))
+        {
+            LogLine NewLogLine;
+            NewLogLine.LineNumber = Index++;
+            NewLogLine.LineText = CurrLogLine;
+            ProcessLine(CurrLogLine, &NewLogLine);
+            mLogLines.emplace_back(NewLogLine);
+        }
+
     }
 }

@@ -33,3 +33,4 @@
 .vs/
 UELogViewer.vcxproj.user
 x64/
+imgui.ini
