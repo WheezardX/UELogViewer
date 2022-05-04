@@ -69,7 +69,7 @@ void LogTab::ProcessLine(const LogLine& LogLine)
 
     const bool ShouldOpenConext = sContextLine.size() == 0 || sContextLine == LogLine.LineText;
     ImGui::PushStyleColor(ImGuiCol_Text, LogLine.Color);
-    ImGui::Text(LogLine.LineText.c_str());
+    ImGui::Text(LogLine.LineText.c_str()); // Input line, read-only would make the text selectable.
     ImGui::PopStyleColor();
     if (ShouldOpenConext && ImGui::BeginPopupContextItem("Line Context"))
     {
